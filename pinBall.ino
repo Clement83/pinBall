@@ -20,6 +20,33 @@ float forceRessort = 6;
 #define TIME_FORCE  5
 byte timeForce = 0;
 
+typedef struct{
+  int8_t x1,y1,x2,y2;
+} Droite;
+
+Droite droites[21] = {
+  {0,0,84,0},
+  {0,13,11,0},
+  {10,9,15,4},
+  {16,4,27,4},
+  {16,11,19,9},
+  {20,9,30,9},
+  {50,5,70,9},
+  {71,9,71,16},
+  {66,0,75,8},
+  {75,8,75,40},
+  {67,30,70,36},
+  {70,36,65,40},
+  {65,40,10,42},
+  {10,42,10,48},
+  {10,48,66,48},
+  {66,48,75,40},
+  {0,29,12,42},
+  {9,33,16,38},
+  {16,38,27,38},
+  {15,30,20,33},
+  {20,33,30,33}
+};
 
 typedef struct{
   float x, y, r, vx, vy;
@@ -27,11 +54,15 @@ typedef struct{
 
 Circle Ball;
 
+
+
+boolean collideDroite(Droite d2,Droite *d3);
+
 void setup()
 {
   gb.begin();
   goTitleScreen();
-  gb.setFrameRate(60);
+  gb.setFrameRate(60);//60
 }
 
 void initGame()
@@ -92,6 +123,7 @@ void updateBall()
         float percent = 1 - ((Ball.x - 18)/5);
         float force = forceRessort * percent;    
         Ball.vx += force;
+        //Ball.vy -= 0.001;
         Ball.x = 23;
       }
     }
@@ -105,6 +137,48 @@ void updateBall()
       Ball.vx = -Ball.vx*0.5;
     }
   }
+  for(byte i=0;i<21;i++)
+  {
+    Droite * dret;
+    if(collideDroite(droites[i],dret))
+    {
+      //Ball.vx *= -0.8;     
+      //break;
+      float dx = (droites[i].x1 - droites[i].x2);
+      float dy = (droites[i].y1 - droites[i].y2);
+      
+      float N = atan(dy/dx); //angle of the normal to te collision plane
+        if(dx < 0){
+          N += PI;
+        }
+
+        //Note that the tangent speed of the collisions are computed even if not used in this example.
+
+        //CIRCLE I
+        //composant of the speed normal to the collision plane of circle i
+        //float Vin = circles[i].vx * cos(N) + circles[i].vy * sin(N);
+        //the composant of Vin on x and y
+        //float Vinx = Vin * cos(N);
+        //float Viny = Vin * sin(N);
+
+        //CIRCLE J
+        //composant of the speed normal to the collision plane of circle j
+        float Vjn = Ball.vx * cos(N) + Ball.vy * sin(N);
+        //the composant of Vin on x and y
+        float Vjnx = Vjn * cos(N);
+        float Vjny = Vjn * sin(N);
+
+
+        //CIRCLE
+        Ball.vx += - Vjnx;// + Vinx;
+        Ball.vy += Vjny;// + Viny;
+
+        //move the first circle to the surface of the second to avoid it getting stuck inside
+        //Ball.x = dret->x1;
+        //Ball.y = dret->y1;
+        
+    }
+  }
   
   Ball.x += Ball.vx;
   Ball.y += Ball.vy;
@@ -114,19 +188,20 @@ void updateBall()
     circles[i].vx *= -1;
     circles[i].x = 0;
   }*/
-  if(circles[i].x > LCDWIDTH){
-    circles[i].vx *= -1;
-    circles[i].x = LCDWIDTH;
+  /*
+  if(Ball.x > LCDWIDTH){
+    Ball.vx *= -1;
+    Ball.x = LCDWIDTH;
   }
 
-  if(circles[i].y < 0){
-    circles[i].vy *= -1;
-    circles[i].y = 0;
+  if(Ball.y < 0){
+    Ball.vy *= -1;
+    Ball.y = 0;
   }
-  if(circles[i].y > LCDHEIGHT){
-    circles[i].vy *= -1;
-    circles[i].y = LCDHEIGHT;
-  }
+  if(Ball.y > LCDHEIGHT){
+    Ball.vy *= -1;
+    Ball.y = LCDHEIGHT;
+  } */
    
   if(Ball.x<-5)
   {
@@ -144,6 +219,12 @@ void drawBall()
 
 void drawWorld()
 {
+  
+  /*for(byte i=0;i<21;i++)
+  {
+    gb.display.drawLine(droites[i].x1, droites[i].y1, droites[i].x2, droites[i].y2);
+  }*/
+  
   gb.display.drawBitmap(0,0,background);
   gb.display.drawBitmap(8,24, ((isRightFlipperPressed)? flipperHaut : flipperBas),0,FLIPV);
   gb.display.drawBitmap(8,11, ((isLeftFlipperPressed)? flipperHaut : flipperBas));
@@ -155,4 +236,54 @@ void drawWorld()
   }
   gb.display.setColor(BLACK);
 }
+
+boolean collideDroite(Droite d2,Droite *d3)
+ {
+  Droite d1;
+  d1.x1 = Ball.x + 2;
+  d1.y1 = Ball.y + 2;
+  d1.x2 = d1.x1 + Ball.vx;
+  d1.y2 = d1.y1 + Ball.vy;
+  
+  float  distAB, theCos, theSin, newX, ABpos ;
+  if (d1.x1==d1.x2 && d1.y1==d1.y2 || d2.x1==d2.x2 && d2.y1==d2.y2) return false;
+
+  //  Fail if the segments share an end-point.
+  if (d1.x1==d2.x1 && d1.y1==d2.y1 || d1.x2==d2.x1 && d1.y2==d2.y1
+  ||  d1.x1==d2.x2 && d1.y1==d2.y2 || d1.x2==d2.x2 && d1.y2==d2.y2) {
+    return false; }
+
+  //  (1) Translate the system so that point A is on the origin.
+  d1.x2-=d1.x1; d1.y2-=d1.y1;
+  d2.x1-=d1.x1; d2.y1-=d1.y1;
+  d2.x2-=d1.x1; d2.y2-=d1.y1;
+
+  //  Discover the length of segment A-B.
+  distAB=sqrt(d1.x2*d1.x2+d1.y2*d1.y2);
+
+  //  (2) Rotate the system so that point B is on the positive X axis.
+  theCos=d1.x2/distAB;
+  theSin=d1.y2/distAB;
+  newX=d2.x1*theCos+d2.y1*theSin;
+  d2.y1  =d2.y1*theCos-d2.x1*theSin; d2.x1=newX;
+  newX=d2.x2*theCos+d2.y2*theSin;
+  d2.y2  =d2.y2*theCos-d2.x2*theSin; d2.x2=newX;
+
+  //  Fail if segment C-D doesn't cross line A-B.
+  if (d2.y1<0. && d2.y2<0. || d2.y1>=0. && d2.y2>=0.) return false;
+
+  //  (3) Discover the position of the intersection point along line A-B.
+  ABpos=d2.x2+(d2.x1-d2.x2)*d2.y2/(d2.y2-d2.y1);
+
+  //  Fail if segment C-D crosses line A-B outside of segment A-B.
+  if (ABpos<0. || ABpos>distAB) return false;
+
+  //  (4) Apply the discovered position to line A-B in the original coordinate system.
+  d3->x1=d1.x1+ABpos*theCos;
+  d3->y1=d1.y1+ABpos*theSin;
+
+  //  Success.
+  return true; 
+}
+
 
