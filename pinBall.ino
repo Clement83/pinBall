@@ -21,7 +21,7 @@ float forceRessort = 6;
 byte timeForce = 0;
 
 typedef struct{
-  int8_t x1,y1,x2,y2;
+  float x1,y1,x2,y2;
 } Droite;
 
 Droite droites[21] = {
@@ -33,7 +33,7 @@ Droite droites[21] = {
   {20,9,30,9},
   {50,5,70,9},
   {71,9,71,16},
-  {66,0,75,8},
+  {65,-1,77,10},
   {75,8,75,40},
   {67,30,70,36},
   {70,36,65,40},
@@ -62,7 +62,7 @@ void setup()
 {
   gb.begin();
   goTitleScreen();
-  gb.setFrameRate(60);//60
+  gb.setFrameRate(10);//60
 }
 
 void initGame()
@@ -78,6 +78,10 @@ void loop()
 {
  if(gb.update())
  {
+   if(gb.buttons.pressed(BTN_C))
+   {
+     goTitleScreen();
+   }
    updateWorld();
    updateBall();
    drawBall();
@@ -114,6 +118,7 @@ void updateBall()
 {
   Ball.vx += gravite; 
   if(abs(Ball.vx)>MAX_VITESSE_BALL) Ball.vx = (Ball.vx>0)? MAX_VITESSE_BALL: -MAX_VITESSE_BALL ;
+  if(abs(Ball.vy)>MAX_VITESSE_BALL) Ball.vy = (Ball.vy>0)? MAX_VITESSE_BALL: -MAX_VITESSE_BALL ;
   if(gb.collideRectRect(13,43,((isRessortHaut)? 10 : 5),4,Ball.x,Ball.y,2,2))
   {
     if(isRessortHaut)
@@ -137,10 +142,15 @@ void updateBall()
       Ball.vx = -Ball.vx*0.5;
     }
   }
+  
+  Ball.x += Ball.vx;
+  Ball.y += Ball.vy;
+    
+  //boolean isCoolide = false;
   for(byte i=0;i<21;i++)
   {
-    Droite * dret;
-    if(collideDroite(droites[i],dret))
+    Droite dret;
+    if(collideDroite(droites[i],&dret))
     {
       //Ball.vx *= -0.8;     
       //break;
@@ -148,9 +158,9 @@ void updateBall()
       float dy = (droites[i].y1 - droites[i].y2);
       
       float N = atan(dy/dx); //angle of the normal to te collision plane
-        if(dx < 0){
-          N += PI;
-        }
+      if(dx < 0){
+        N += PI;
+      }
 
         //Note that the tangent speed of the collisions are computed even if not used in this example.
 
@@ -174,15 +184,18 @@ void updateBall()
         Ball.vy += Vjny;// + Viny;
 
         //move the first circle to the surface of the second to avoid it getting stuck inside
-        //Ball.x = dret->x1;
-        //Ball.y = dret->y1;
+        Ball.x = dret.x1;
+        Ball.y = dret.y1;
         
+      Serial.print(dret.x1);
+      Serial.print(" <=X, Y=> ");
+      Serial.print(dret.y1);
+      Serial.print(" | ");
+        
+        //isCoolide = true;
     }
   }
-  
-  Ball.x += Ball.vx;
-  Ball.y += Ball.vy;
-  
+   
   //prevent circles from going out of the screen :
   /*if(circles[i].x < 0){
     circles[i].vx *= -1;
@@ -220,12 +233,12 @@ void drawBall()
 void drawWorld()
 {
   
-  /*for(byte i=0;i<21;i++)
+  for(byte i=0;i<21;i++)
   {
     gb.display.drawLine(droites[i].x1, droites[i].y1, droites[i].x2, droites[i].y2);
-  }*/
+  }
   
-  gb.display.drawBitmap(0,0,background);
+  //gb.display.drawBitmap(0,0,background);
   gb.display.drawBitmap(8,24, ((isRightFlipperPressed)? flipperHaut : flipperBas),0,FLIPV);
   gb.display.drawBitmap(8,11, ((isLeftFlipperPressed)? flipperHaut : flipperBas));
   gb.display.drawBitmap(13,43, ((isRessortHaut)? ressortHaut : ressortBAs));
@@ -240,10 +253,10 @@ void drawWorld()
 boolean collideDroite(Droite d2,Droite *d3)
  {
   Droite d1;
-  d1.x1 = Ball.x + 2;
-  d1.y1 = Ball.y + 2;
-  d1.x2 = d1.x1 + Ball.vx;
-  d1.y2 = d1.y1 + Ball.vy;
+  d1.x2 = Ball.x + 2;
+  d1.y2 = Ball.y + 2;
+  d1.x1 = d1.x2 - Ball.vx;
+  d1.y1 = d1.y2 - Ball.vy;
   
   float  distAB, theCos, theSin, newX, ABpos ;
   if (d1.x1==d1.x2 && d1.y1==d1.y2 || d2.x1==d2.x2 && d2.y1==d2.y2) return false;
@@ -281,6 +294,7 @@ boolean collideDroite(Droite d2,Droite *d3)
   //  (4) Apply the discovered position to line A-B in the original coordinate system.
   d3->x1=d1.x1+ABpos*theCos;
   d3->y1=d1.y1+ABpos*theSin;
+  
 
   //  Success.
   return true; 
